@@ -14,13 +14,45 @@ use bleps::{
     attribute_server::NotificationData,
     gatt,
 };
+use de1::{Command, Frame};
 use embassy_executor::Spawner;
+use embassy_sync::blocking_mutex::raw::NoopRawMutex;
+use embassy_sync::channel::{Channel, Receiver, Sender};
 use embedded_hal_async::digital::Wait;
 use esp32c3_hal as hal;
 use esp_backtrace as _;
 use esp_println::println;
 use esp_wifi::{ble::controller::asynch::BleConnector, initialize, EspWifiInitFor};
 use hal::{clock::ClockControl, embassy, peripherals::*, prelude::*, timer::TimerGroup, Rng, IO};
+
+mod charactaristic;
+
+use charactaristic::Charactaristic;
+
+type FrameChannel = Channel<NoopRawMutex, Frame, 4>;
+type FrameSender<'ch> = Sender<'ch, NoopRawMutex, Frame, 4>;
+type FrameReceiver<'ch> = Receiver<'ch, NoopRawMutex, Frame, 4>;
+
+enum Subscribtion {
+    Subscribe(Command),
+    Unsubscribe(Command),
+}
+
+type SubscribtionChannel = Channel<NoopRawMutex, Subscribtion, 4>;
+type SubscribtionSender<'ch> = Sender<'ch, NoopRawMutex, Subscribtion, 4>;
+type SubscribtionReceiver<'ch> = Receiver<'ch, NoopRawMutex, Subscribtion, 4>;
+
+type Mutex<T> = embassy_sync::mutex::Mutex<NoopRawMutex, T>;
+
+#[global_allocator]
+static ALLOCATOR: esp_alloc::EspHeap = esp_alloc::EspHeap::empty();
+
+macro_rules! charactaristic {
+    ($command:expr, $frame_channel:expr) => {{
+        const data_len: usize = $command.data_len();
+        Charactaristic::<'_, data_len>::new($command, $frame_channel.sender())
+    }};
+}
 
 #[main]
 async fn main(_spawner: Spawner) -> ! {
@@ -83,45 +115,115 @@ async fn main(_spawner: Spawner) -> ! {
         println!("{:?}", ble.cmd_set_le_advertise_enable(true).await);
 
         println!("started advertising");
+        let mut frame_channel = FrameChannel::new();
 
-        let mut rf = |_offset: usize, data: &mut [u8]| {
-            data[..20].copy_from_slice(&b"Hello Bare-Metal BLE"[..]);
-            17
-        };
-        let mut wf = |offset: usize, data: &[u8]| {
-            println!("RECEIVED: {} {:?}", offset, data);
-        };
-
-        let mut wf2 = |offset: usize, data: &[u8]| {
-            println!("RECEIVED: {} {:?}", offset, data);
-        };
-
-        let mut rf3 = |_offset: usize, data: &mut [u8]| {
-            data[..5].copy_from_slice(&b"Hola!"[..]);
-            5
-        };
-        let mut wf3 = |offset: usize, data: &[u8]| {
-            println!("RECEIVED: Offset {}, data {:?}", offset, data);
-        };
+        let versions_charactaristic = charactaristic!(Command::Versions, frame_channel);
+        let requested_state_charactaristic =
+            charactaristic!(Command::RequestedState, frame_channel);
+        let read_from_mmr_charactaristic = charactaristic!(Command::ReadFromMmr, frame_channel);
+        let write_to_mmr_charactaristic = charactaristic!(Command::WriteToMmr, frame_channel);
+        let fw_map_request_charactaristic = charactaristic!(Command::FwMapRequest, frame_channel);
+        let shot_settings_charactaristic = charactaristic!(Command::ShotSettings, frame_channel);
+        let shot_sample_charactaristic = charactaristic!(Command::ShotSample, frame_channel);
+        let state_info_charactaristic = charactaristic!(Command::StateInfo, frame_channel);
+        let header_write_charactaristic = charactaristic!(Command::HeaderWrite, frame_channel);
+        let frame_write_charactaristic = charactaristic!(Command::FrameWrite, frame_channel);
+        let water_levels_charactaristic = charactaristic!(Command::WaterLevels, frame_channel);
+        let calibration_charactaristic = charactaristic!(Command::Calibration, frame_channel);
 
         gatt!([service {
-            uuid: "937312e0-2354-11eb-9f10-fbc30a62cf38",
+            uuid: "0000a000-0000-1000-8000-00805f9b34fb",
             characteristics: [
                 characteristic {
-                    uuid: "937312e0-2354-11eb-9f10-fbc30a62cf38",
-                    read: rf,
-                    write: wf,
-                },
-                characteristic {
-                    uuid: "957312e0-2354-11eb-9f10-fbc30a62cf38",
-                    write: wf2,
-                },
-                characteristic {
-                    name: "my_characteristic",
-                    uuid: "987312e0-2354-11eb-9f10-fbc30a62cf38",
+                    name: "versions",
+                    uuid: "0000A001-0000-1000-8000-00805F9B34FB",
+                    data: versions_charactaristic,
+                    readable: true,
                     notify: true,
-                    read: rf3,
-                    write: wf3,
+                },
+                characteristic {
+                    name: "requested_state",
+                    uuid: "0000A002-0000-1000-8000-00805F9B34FB",
+                    data: requested_state_charactaristic,
+                    readable: true,
+                    writable: true,
+                    notify: true,
+                },
+                characteristic {
+                    name: "read_from_mmr",
+                    uuid: "0000A005-0000-1000-8000-00805F9B34FB",
+                    data: read_from_mmr_charactaristic,
+                    readable: true,
+                    writable: true,
+                    notify: true,
+                },
+                characteristic {
+                    name: "write_to_mmr",
+                    uuid: "0000A006-0000-1000-8000-00805F9B34FB",
+                    data: write_to_mmr_charactaristic,
+                    writable: true,
+                    notify: true,
+                },
+                characteristic {
+                    name: "fw_map_request",
+                    uuid: "0000A009-0000-1000-8000-00805F9B34FB",
+                    data: fw_map_request_charactaristic,
+                    writable: true,
+                    notify: true,
+                },
+                characteristic {
+                    name: "shot_setings",
+                    uuid: "0000A00B-0000-1000-8000-00805F9B34FB",
+                    data: shot_settings_charactaristic,
+                    readable: true,
+                    writable: true,
+                    notify: true,
+                },
+                characteristic {
+                    name: "shot_sample",
+                    uuid: "0000A00D-0000-1000-8000-00805F9B34FB",
+                    data: shot_sample_charactaristic,
+                    readable: true,
+                    notify: true,
+                },
+                characteristic {
+                    name: "state_info",
+                    uuid: "0000A00E-0000-1000-8000-00805F9B34FB",
+                    data: state_info_charactaristic,
+                    readable: true,
+                    notify: true,
+                },
+                characteristic {
+                    name: "header_write",
+                    uuid: "0000A00F-0000-1000-8000-00805F9B34FB",
+                    data: header_write_charactaristic,
+                    readable: true,
+                    writable: true,
+                    notify: true,
+                },
+                characteristic {
+                    name: "frame_write",
+                    uuid: "0000A010-0000-1000-8000-00805F9B34FB",
+                    data: frame_write_charactaristic,
+                    readable: true,
+                    writable: true,
+                    notify: true,
+                },
+                characteristic {
+                    name: "water_levels",
+                    uuid: "0000A011-0000-1000-8000-00805F9B34FB",
+                    data: water_levels_charactaristic,
+                    readable: true,
+                    writable: true,
+                    notify: true,
+                },
+                characteristic {
+                    name: "calibration",
+                    uuid: "0000A012-0000-1000-8000-00805F9B34FB",
+                    data: calibration_charactaristic,
+                    readable: true,
+                    writable: true,
+                    notify: true,
                 },
             ],
         },]);
@@ -146,7 +248,7 @@ async fn main(_spawner: Spawner) -> ! {
                     data[data.len() - 1] += *counter;
                     *counter = (*counter + 1) % 10;
                 }
-                NotificationData::new(my_characteristic_handle, &data)
+                NotificationData::new(requested_state_handle, &data)
             }
         };
 
