@@ -1628,6 +1628,7 @@ dependencies = [
  "embassy-futures",
  "embassy-net",
  "embassy-sync",
+ "embassy-time",
  "embedded-hal-async",
  "embedded-svc 0.26.4",
  "esp-alloc",
