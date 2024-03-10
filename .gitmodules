@@ -1,0 +1,6 @@
+[submodule "third_party/bleps"]
+	path = third_party/bleps
+	url = https://github.com/konkers/bleps
+[submodule "third_party/de1"]
+	path = third_party/de1
+	url = https://github.com/konkers/de1

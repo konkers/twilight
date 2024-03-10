@@ -10,14 +10,12 @@ use bleps::{
 use de1::Command;
 use embassy_time::Timer;
 use esp_println::println;
-use esp_wifi::{
-    ble::controller::asynch::BleConnector, initialize, EspWifiInitFor, EspWifiInitialization,
-};
+use esp_wifi::{ble::controller::asynch::BleConnector, EspWifiInitialization};
 
 use crate::hal::peripherals::BT;
 
 use crate::charactaristic::Charactaristic;
-use crate::{FrameChannel, FrameSender};
+use crate::FrameSender;
 
 macro_rules! charactaristic {
     ($command:expr, $frame_tx:expr) => {{
@@ -31,7 +29,6 @@ pub async fn ble_task(mut bluetooth: BT, init: &EspWifiInitialization, frame_tx:
     let mut ble = Ble::new(connector, esp_wifi::current_millis);
     println!("Connector created");
 
-    // TODO: make these copyable and declare outside of loop.
     let versions_charactaristic = charactaristic!(Command::Versions, frame_tx);
     let requested_state_charactaristic = charactaristic!(Command::RequestedState, frame_tx);
     let read_from_mmr_charactaristic = charactaristic!(Command::ReadFromMmr, frame_tx);

@@ -3,33 +3,20 @@
 #![feature(type_alias_impl_trait)]
 #![feature(async_closure)]
 
-use core::cell::RefCell;
-
-use bleps::{
-    ad_structure::{
-        create_advertising_data, AdStructure, BR_EDR_NOT_SUPPORTED, LE_GENERAL_DISCOVERABLE,
-    },
-    async_attribute_server::AttributeServer,
-    asynch::Ble,
-    attribute_server::NotificationData,
-    gatt,
-};
 use de1::{Command, Frame};
 use embassy_executor::Spawner;
 use embassy_sync::blocking_mutex::raw::NoopRawMutex;
 use embassy_sync::channel::{Channel, Receiver, Sender};
-use embedded_hal_async::digital::Wait;
 use esp32c3_hal as hal;
 use esp_backtrace as _;
 use esp_println::println;
-use esp_wifi::{ble::controller::asynch::BleConnector, initialize, EspWifiInitFor};
+use esp_wifi::{initialize, EspWifiInitFor};
 use hal::{clock::ClockControl, embassy, peripherals::*, prelude::*, timer::TimerGroup, Rng, IO};
 
 mod ble;
 mod charactaristic;
 
 use ble::ble_task;
-use charactaristic::Charactaristic;
 
 type FrameChannel = Channel<NoopRawMutex, Frame, 4>;
 type FrameSender<'ch> = Sender<'ch, NoopRawMutex, Frame, 4>;

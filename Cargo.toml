@@ -9,12 +9,8 @@ license = "MIT OR Apache-2.0"
 debug = true
 
 [dependencies]
-bleps = { path = "../bleps/bleps", features = ["async", "macros"] }
-# bleps = { git = "https://github.com/bjoernQ/bleps", package = "bleps", rev = "be90de7", features = [
-# 	"async",
-# 	"macros",
-# ] }
-de1 = { path = "../de1" }
+bleps = { path = "./third_party/bleps/bleps", features = ["async", "macros"] }
+de1 = { path = "./third_party/de1" }
 embassy-executor = { version = "0.5.0", features = [
 	"nightly",
 	"integrated-timers",
