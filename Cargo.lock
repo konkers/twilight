@@ -277,6 +277,13 @@ name = "de1"
 version = "0.1.0"
 dependencies = [
  "binrw",
+ "critical-section",
+ "embassy-executor",
+ "embassy-futures",
+ "embassy-sync",
+ "embassy-time",
+ "embedded-io-async",
+ "esp-println",
  "fixed",
  "heapless 0.8.0",
  "nom",
@@ -1630,6 +1637,7 @@ dependencies = [
  "embassy-sync",
  "embassy-time",
  "embedded-hal-async",
+ "embedded-io-async",
  "embedded-svc 0.26.4",
  "esp-alloc",
  "esp-backtrace",

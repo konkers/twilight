@@ -7,7 +7,7 @@ use bleps::{
     attribute_server::NotificationData,
     gatt,
 };
-use de1::Command;
+use de1::{Command, Frame};
 use embassy_time::Timer;
 use esp_println::println;
 use esp_wifi::{ble::controller::asynch::BleConnector, EspWifiInitialization};
@@ -15,7 +15,7 @@ use esp_wifi::{ble::controller::asynch::BleConnector, EspWifiInitialization};
 use crate::hal::peripherals::BT;
 
 use crate::charactaristic::Charactaristic;
-use crate::FrameSender;
+use crate::{FrameReceiver, FrameSender};
 
 macro_rules! charactaristic {
     ($command:expr, $frame_tx:expr) => {{
@@ -24,7 +24,12 @@ macro_rules! charactaristic {
     }};
 }
 
-pub async fn ble_task(mut bluetooth: BT, init: &EspWifiInitialization, frame_tx: FrameSender<'_>) {
+pub async fn ble_task(
+    mut bluetooth: BT,
+    init: &EspWifiInitialization,
+    frame_tx: FrameSender<'_>,
+    update_rx: FrameReceiver<'_>,
+) {
     let connector = BleConnector::new(init, &mut bluetooth);
     let mut ble = Ble::new(connector, esp_wifi::current_millis);
     println!("Connector created");
@@ -51,7 +56,7 @@ pub async fn ble_task(mut bluetooth: BT, init: &EspWifiInitialization, frame_tx:
                 create_advertising_data(&[
                     AdStructure::Flags(LE_GENERAL_DISCOVERABLE | BR_EDR_NOT_SUPPORTED),
                     AdStructure::ServiceUuids16(&[Uuid::Uuid16(0x1809)]),
-                    AdStructure::CompleteLocalName("konkers"),
+                    AdStructure::CompleteLocalName("DE1"),
                 ])
                 .unwrap()
             )
@@ -102,7 +107,7 @@ pub async fn ble_task(mut bluetooth: BT, init: &EspWifiInitialization, frame_tx:
                     notify: true,
                 },
                 characteristic {
-                    name: "shot_setings",
+                    name: "shot_settings",
                     uuid: "0000A00B-0000-1000-8000-00805F9B34FB",
                     data: &shot_settings_charactaristic,
                     readable: true,
@@ -168,15 +173,36 @@ pub async fn ble_task(mut bluetooth: BT, init: &EspWifiInitialization, frame_tx:
             async {
                 // #[allow(clippy::await_holding_refcell_ref)]
                 // pin_ref.borrow_mut().wait_for_rising_edge().await.unwrap();
-                Timer::after_secs(10).await;
-                let mut data = [0u8; 13];
+                // Timer::after_secs(10).await;
+                loop {
+                    let frame = update_rx.receive().await;
+                    let Frame::FromDe1(command) = &frame else {
+                        continue;
+                    };
+                    let handle = match command.command {
+                        'A' => versions_handle,
+                        'B' => requested_state_handle,
+                        'E' => read_from_mmr_handle,
+                        'F' => write_to_mmr_handle,
+                        'K' => shot_settings_handle,
+                        'M' => shot_sample_handle,
+                        'N' => state_info_handle,
+                        'O' => header_write_handle,
+                        'P' => frame_write_handle,
+                        'Q' => water_levels_handle,
+                        _ => continue,
+                    };
+
+                    println!("sending notification for {:?}", frame);
+                    break NotificationData::new(handle, command.data.as_slice());
+                }
+                //let mut data = [0u8; 13];
                 // data.copy_from_slice(b"Notification0");
                 // {
                 //     let mut counter = counter.borrow_mut();
                 //     data[data.len() - 1] += *counter;
                 //     *counter = (*counter + 1) % 10;
                 // }
-                NotificationData::new(requested_state_handle, &data)
             }
         };
 
