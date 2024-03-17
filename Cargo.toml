@@ -35,7 +35,10 @@ esp-backtrace = { version = "0.11.0", features = [
 	"exception-handler",
 	"println",
 ] }
-esp-println = { version = "0.9.0", features = ["esp32c3"] }
+esp-println = { version = "0.9.1", default-features = false, features = [
+	"esp32c3",
+	"jtag-serial",
+] }
 esp-wifi = { version = "0.3.0", features = ["esp32c3", "wifi", "ble", "async"] }
 esp32c3-hal = { version = "0.15.0", features = [
 	"embassy",

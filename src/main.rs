@@ -12,7 +12,7 @@ use esp32c3_hal as hal;
 use esp_backtrace as _;
 use esp_println::println;
 use esp_wifi::{initialize, EspWifiInitFor};
-use hal::uart::TxRxPins;
+use hal::uart::{AllPins, TxRxPins};
 use hal::{clock::ClockControl, embassy, peripherals::*, prelude::*, timer::TimerGroup, Rng, IO};
 use hal::{uart, Uart};
 
@@ -85,16 +85,22 @@ async fn main(_spawner: Spawner) -> ! {
     };
     let pins = TxRxPins::new_tx_rx(
         io.pins.gpio21.into_push_pull_output(),
-        io.pins.gpio20.into_floating_input(),
+        io.pins.gpio20.into_pull_up_input(),
     );
+    // let pins = AllPins::new(
+    //     io.pins.gpio21.into_push_pull_output(),
+    //     io.pins.gpio20.into_pull_up_input(),
+    //     io.pins.gpio7.into_floating_input(),
+    //     io.pins.gpio8.into_push_pull_output(),
+    // );
 
-    // let uart0 = Uart::new_with_config(peripherals.UART0, config, Some(pins), &clocks);
-    // let (uart_tx, uart_rx) = uart0.split();
-    let mut pipe1 = Pipe::new();
-    let (fake_rx, uart_tx) = pipe1.split();
-    let mut pipe2 = Pipe::new();
-    let (uart_rx, fake_tx) = pipe2.split();
-    let mut de1 = De1::new(fake_rx, fake_tx);
+    let uart0 = Uart::new_with_config(peripherals.UART0, config, Some(pins), &clocks);
+    let (uart_tx, uart_rx) = uart0.split();
+    // let mut pipe1 = Pipe::new();
+    // let (fake_rx, uart_tx) = pipe1.split();
+    // let mut pipe2 = Pipe::new();
+    // let (uart_rx, fake_tx) = pipe2.split();
+    // let mut de1 = De1::new(fake_rx, fake_tx);
 
     let mut serial = serial::SerialInterface::new(
         uart_rx,
@@ -103,7 +109,18 @@ async fn main(_spawner: Spawner) -> ! {
         update_channel.sender(),
     );
 
-    embassy_futures::join::join3(
+    // embassy_futures::join::join3(
+    //     ble_task(
+    //         bluetooth,
+    //         &init,
+    //         frame_channel.sender(),
+    //         update_channel.receiver(),
+    //     ),
+    //     serial.run(),
+    //     de1.run(),
+    // )
+    // .await;
+    embassy_futures::join::join(
         ble_task(
             bluetooth,
             &init,
@@ -111,7 +128,6 @@ async fn main(_spawner: Spawner) -> ! {
             update_channel.receiver(),
         ),
         serial.run(),
-        de1.run(),
     )
     .await;
 

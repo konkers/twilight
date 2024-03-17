@@ -33,6 +33,8 @@ impl<'rx_ch, 'tx_ch, R: Read, W: Write> SerialInterface<'rx_ch, 'tx_ch, R, W> {
     }
 
     pub async fn run(&mut self) {
+        // Send two new lines to ensure that the remote side's buffers are cleared.
+        let _ = self.link_tx.write_all(b"\n\n").await;
         loop {
             let mut buf = [0u8; Command::MAX_DATA_LENGTH];
             match select(self.frame_rx.receive(), self.link_rx.read(&mut buf)).await {
@@ -52,13 +54,14 @@ impl<'rx_ch, 'tx_ch, R: Read, W: Write> SerialInterface<'rx_ch, 'tx_ch, R, W> {
 
     async fn handle_char(&mut self, c: char) -> Result<()> {
         if let Some(frame) = self.line_reader.handle_char(c)? {
-            println!("update_frame: {frame:?}");
+            //   println!("update_frame: {frame:?}");
             self.update_tx.send(frame).await;
         }
         Ok(())
     }
 
     async fn handle_serial_input(&mut self, data: &[u8]) {
+        println!("rx SER: {data:?}");
         println!("SER: input {}", unsafe {
             core::str::from_utf8_unchecked(data)
         });
