@@ -64,3 +64,7 @@ smoltcp = { version = "0.11.0", default-features = false, features = [
 	"socket-raw",
 	"socket-dhcpv4",
 ] }
+
+[features]
+default = []
+fake = []
