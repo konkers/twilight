@@ -36,8 +36,10 @@ esp-backtrace = { version = "0.11.0", features = [
 	"println",
 ] }
 esp-println = { version = "0.9.1", default-features = false, features = [
+	"colors",
 	"esp32c3",
 	"jtag-serial",
+	"log",
 ] }
 esp-wifi = { version = "0.3.0", features = ["esp32c3", "wifi", "ble", "async"] }
 esp32c3-hal = { version = "0.15.0", features = [
@@ -49,6 +51,7 @@ esp32c3-hal = { version = "0.15.0", features = [
 
 ] }
 heapless = { version = "0.8.0", default-features = false }
+log = { version = "0.4.21", default-features = false }
 smoltcp = { version = "0.11.0", default-features = false, features = [
 	"medium-ethernet",
 	"proto-igmp",

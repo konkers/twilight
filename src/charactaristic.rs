@@ -1,11 +1,8 @@
-use bleps::{
-    att::{Att, AttErrorCode},
-    attribute::AttData,
-};
+use bleps::{att::AttErrorCode, attribute::AttData};
 use core::cmp::min;
 use de1::{Command, CommandFrame, Frame};
-use esp_println::println;
 use heapless::Vec;
+use log::{error, info, trace};
 
 use crate::{FrameSender, Mutex};
 
@@ -28,17 +25,15 @@ impl<'ch, const DATA_LEN: usize> Charactaristic<'ch, DATA_LEN> {
 
 impl<'ch, const DATA_LEN: usize> AttData for &Charactaristic<'ch, DATA_LEN> {
     fn readable(&self) -> bool {
-        println!("{:?} redable", self.command);
         true
     }
 
     fn writable(&self) -> bool {
-        println!("{:?} writeable", self.command);
         true
     }
 
     fn enable_notification(&mut self, enabled: bool) -> Result<(), AttErrorCode> {
-        println!("{:?} notification enable {}", self.command, enabled);
+        info!("{:?} notification enable {}", self.command, enabled);
         let frame = match enabled {
             true => Frame::Subscribe(self.command.serial_command()),
             false => Frame::Unsubscribe(self.command.serial_command()),
@@ -63,7 +58,7 @@ impl<'ch, const DATA_LEN: usize> AttData for &Charactaristic<'ch, DATA_LEN> {
         let read_len = min(data.len() - offset, read_data.len());
 
         read_data[..read_len].copy_from_slice(&data[offset..offset + read_len]);
-        println!(
+        trace!(
             "read {:?}: {} {:?}",
             self.command,
             offset,
@@ -74,16 +69,16 @@ impl<'ch, const DATA_LEN: usize> AttData for &Charactaristic<'ch, DATA_LEN> {
     }
 
     fn write(&mut self, offset: usize, write_data: &[u8]) -> Result<(), bleps::att::AttErrorCode> {
-        println!("write {:?}: {} {:?}", self.command, offset, write_data);
+        trace!("write {:?}: {} {:?}", self.command, offset, write_data);
         let Ok(mut data) = self.data.try_lock() else {
             // Since we're single threaded we should never contend on this lock.
             // TODO: log error.
-            println!("lock failed");
+            error!("lock failed");
             return Err(AttErrorCode::UnlikelyError);
         };
 
         if offset >= data.len() {
-            println!("bad offset");
+            error!("bad offset");
             return Err(AttErrorCode::InvalidOffset);
         }
 
@@ -92,8 +87,7 @@ impl<'ch, const DATA_LEN: usize> AttData for &Charactaristic<'ch, DATA_LEN> {
         data[offset..offset + write_len].copy_from_slice(&write_data[..write_len]);
 
         let Ok(frame_data) = Vec::from_slice(&*data) else {
-            println!("bad offset");
-            // TOOD: log error
+            error!("bad offset");
             return Err(AttErrorCode::InvalidOffset);
         };
 

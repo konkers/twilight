@@ -10,11 +10,11 @@ use embassy_sync::channel::{Channel, Receiver, Sender};
 use embassy_sync::pipe::Pipe;
 use esp32c3_hal as hal;
 use esp_backtrace as _;
-use esp_println::println;
 use esp_wifi::{initialize, EspWifiInitFor};
 use hal::uart::{AllPins, TxRxPins};
 use hal::{clock::ClockControl, embassy, peripherals::*, prelude::*, timer::TimerGroup, Rng, IO};
 use hal::{uart, Uart};
+use log::info;
 
 mod ble;
 mod charactaristic;
@@ -42,7 +42,6 @@ static ALLOCATOR: esp_alloc::EspHeap = esp_alloc::EspHeap::empty();
 
 #[main]
 async fn main(_spawner: Spawner) -> ! {
-    #[cfg(feature = "log")]
     esp_println::logger::init_logger(log::LevelFilter::Info);
 
     let peripherals = Peripherals::take();
@@ -120,6 +119,8 @@ async fn main(_spawner: Spawner) -> ! {
     //     de1.run(),
     // )
     // .await;
+
+    info!("Initialized: running tasks");
     embassy_futures::join::join(
         ble_task(
             bluetooth,

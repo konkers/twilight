@@ -4,7 +4,7 @@ use de1::{
 };
 use embassy_futures::select::select;
 use embedded_io_async::{Read, Write};
-use esp_println::println;
+use log::{error, trace};
 
 use crate::{FrameReceiver, FrameSender};
 
@@ -40,7 +40,7 @@ impl<'rx_ch, 'tx_ch, R: Read, W: Write> SerialInterface<'rx_ch, 'tx_ch, R, W> {
             match select(self.frame_rx.receive(), self.link_rx.read(&mut buf)).await {
                 embassy_futures::select::Either::First(frame) => {
                     if let Err(e) = self.handle_frame_to_send(frame).await {
-                        println!("Error sending frame: {e:?}");
+                        error!("Error sending frame: {e:?}");
                     }
                 }
                 embassy_futures::select::Either::Second(read_len) => {
@@ -54,20 +54,18 @@ impl<'rx_ch, 'tx_ch, R: Read, W: Write> SerialInterface<'rx_ch, 'tx_ch, R, W> {
 
     async fn handle_char(&mut self, c: char) -> Result<()> {
         if let Some(frame) = self.line_reader.handle_char(c)? {
-            //   println!("update_frame: {frame:?}");
             self.update_tx.send(frame).await;
         }
         Ok(())
     }
 
     async fn handle_serial_input(&mut self, data: &[u8]) {
-        println!("rx SER: {data:?}");
-        println!("SER: input {}", unsafe {
+        trace!("SER: input {}", unsafe {
             core::str::from_utf8_unchecked(data)
         });
         for c in data.iter().map(|b| *b as char) {
             if let Err(e) = self.handle_char(c).await {
-                println!("SER: error handling char '{c}': {e:?}");
+                error!("SER: error handling char '{c}': {e:?}");
             }
         }
     }
@@ -77,7 +75,7 @@ impl<'rx_ch, 'tx_ch, R: Read, W: Write> SerialInterface<'rx_ch, 'tx_ch, R, W> {
 
         let len = frame.write(&mut buf[..]).await?;
         let encoded_str = core::str::from_utf8(&buf[..len]).unwrap();
-        println!("Sending frame {encoded_str}");
+        trace!("Sending frame {encoded_str}");
         self.link_tx
             .write_all(&buf[..len])
             .await

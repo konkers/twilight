@@ -8,9 +8,8 @@ use bleps::{
     gatt,
 };
 use de1::{Command, Frame};
-use embassy_time::Timer;
-use esp_println::println;
 use esp_wifi::{ble::controller::asynch::BleConnector, EspWifiInitialization};
+use log::{debug, info};
 
 use crate::hal::peripherals::BT;
 
@@ -32,7 +31,7 @@ pub async fn ble_task(
 ) {
     let connector = BleConnector::new(init, &mut bluetooth);
     let mut ble = Ble::new(connector, esp_wifi::current_millis);
-    println!("Connector created");
+    info!("BLE Connector created");
 
     let versions_charactaristic = charactaristic!(Command::Versions, frame_tx);
     let requested_state_charactaristic = charactaristic!(Command::RequestedState, frame_tx);
@@ -48,9 +47,11 @@ pub async fn ble_task(
     let calibration_charactaristic = charactaristic!(Command::Calibration, frame_tx);
 
     loop {
-        println!("{:?}", ble.init().await);
-        println!("{:?}", ble.cmd_set_le_advertising_parameters().await);
-        println!(
+        // TODO: disable notifications/subscriptions on connection reset.
+
+        debug!("{:?}", ble.init().await);
+        debug!("{:?}", ble.cmd_set_le_advertising_parameters().await);
+        debug!(
             "{:?}",
             ble.cmd_set_le_advertising_data(
                 create_advertising_data(&[
@@ -62,9 +63,9 @@ pub async fn ble_task(
             )
             .await
         );
-        println!("{:?}", ble.cmd_set_le_advertise_enable(true).await);
+        debug!("{:?}", ble.cmd_set_le_advertise_enable(true).await);
 
-        println!("started advertising");
+        info!("started advertising");
 
         gatt!([service {
             uuid: "0000a000-0000-1000-8000-00805f9b34fb",
@@ -166,43 +167,28 @@ pub async fn ble_task(
         let mut rng = bleps::no_rng::NoRng;
         let mut srv = AttributeServer::new(&mut ble, &mut gatt_attributes, &mut rng);
 
-        let mut notifier = || {
-            // TODO how to check if notifications are enabled for the characteristic?
-            // maybe pass something into the closure which just can query the characterisic value
-            // probably passing in the attribute server won't work?
-            async {
-                // #[allow(clippy::await_holding_refcell_ref)]
-                // pin_ref.borrow_mut().wait_for_rising_edge().await.unwrap();
-                // Timer::after_secs(10).await;
-                loop {
-                    let frame = update_rx.receive().await;
-                    let Frame::FromDe1(command) = &frame else {
-                        continue;
-                    };
-                    let handle = match command.command {
-                        'A' => versions_handle,
-                        'B' => requested_state_handle,
-                        'E' => read_from_mmr_handle,
-                        'F' => write_to_mmr_handle,
-                        'K' => shot_settings_handle,
-                        'M' => shot_sample_handle,
-                        'N' => state_info_handle,
-                        'O' => header_write_handle,
-                        'P' => frame_write_handle,
-                        'Q' => water_levels_handle,
-                        _ => continue,
-                    };
+        let mut notifier = || async {
+            loop {
+                let frame = update_rx.receive().await;
+                let Frame::FromDe1(command) = &frame else {
+                    continue;
+                };
+                let handle = match command.command {
+                    'A' => versions_handle,
+                    'B' => requested_state_handle,
+                    'E' => read_from_mmr_handle,
+                    'F' => write_to_mmr_handle,
+                    'K' => shot_settings_handle,
+                    'M' => shot_sample_handle,
+                    'N' => state_info_handle,
+                    'O' => header_write_handle,
+                    'P' => frame_write_handle,
+                    'Q' => water_levels_handle,
+                    _ => continue,
+                };
 
-                    println!("sending notification for {:?}", frame);
-                    break NotificationData::new(handle, command.data.as_slice());
-                }
-                //let mut data = [0u8; 13];
-                // data.copy_from_slice(b"Notification0");
-                // {
-                //     let mut counter = counter.borrow_mut();
-                //     data[data.len() - 1] += *counter;
-                //     *counter = (*counter + 1) % 10;
-                // }
+                info!("sending notification for {:?}", frame);
+                break NotificationData::new(handle, command.data.as_slice());
             }
         };
 
