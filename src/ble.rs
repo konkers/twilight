@@ -49,21 +49,26 @@ pub async fn ble_task(
     loop {
         // TODO: disable notifications/subscriptions on connection reset.
 
-        debug!("{:?}", ble.init().await);
-        debug!("{:?}", ble.cmd_set_le_advertising_parameters().await);
-        debug!(
-            "{:?}",
-            ble.cmd_set_le_advertising_data(
+        let ret = ble.init().await;
+        debug!("{ret:?}");
+
+        let ret = ble.cmd_set_le_advertising_parameters().await;
+        debug!("{ret:?}");
+
+        let ret = ble
+            .cmd_set_le_advertising_data(
                 create_advertising_data(&[
                     AdStructure::Flags(LE_GENERAL_DISCOVERABLE | BR_EDR_NOT_SUPPORTED),
                     AdStructure::ServiceUuids16(&[Uuid::Uuid16(0x1809)]),
                     AdStructure::CompleteLocalName("DE1"),
                 ])
-                .unwrap()
+                .unwrap(),
             )
-            .await
-        );
-        debug!("{:?}", ble.cmd_set_le_advertise_enable(true).await);
+            .await;
+        debug!("{ret:?}");
+
+        let ret = ble.cmd_set_le_advertise_enable(true).await;
+        debug!("{ret:?}");
 
         info!("started advertising");
 
